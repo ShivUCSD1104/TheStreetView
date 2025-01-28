@@ -5,7 +5,7 @@ import numpy as np
 from BSMCompute import compute_implied_vols
 
 # Choose a ticker symbol
-ticker_symbol = "TSLA"
+ticker_symbol = "NVDA"
 
 # Compute implied vols, moneyness, time-to-expiry for CALLS
 ivs_calls, mny_calls, ttes_calls = compute_implied_vols(ticker_symbol, contract_type="calls")

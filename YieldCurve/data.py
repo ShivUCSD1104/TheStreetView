@@ -17,7 +17,7 @@ def get_yield_data(start_date, end_date):
           # Download the data and extract adjusted close prices
           df = yf.download(ticker, start="2024-07-01", end="2025-01-01")
           if not df.empty:  # Ensure the data is valid
-              data[label] = df["Adj Close"]
+              data[label] = df["Close"]
           else:
               print(f"No data available for {label} ({ticker})")
       except Exception as e:
