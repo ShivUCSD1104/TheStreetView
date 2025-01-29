@@ -18,4 +18,14 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-tomorrow), sans-serif;
+  cursor: url('/cursor.svg'), auto;
+}
+
+@layer utilities {
+  .bg-five-color-gradient {
+    background: linear-gradient(90deg, #f7f7f5 1%, #fef9c3,#d1fae5, #dbeafe, #f9f9f9 99%);
+  }
+  .white-cursor{
+    cursor: url('/cursor-white.svg'), auto;
+  }
 }
