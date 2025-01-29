@@ -61,7 +61,7 @@ export default function Home() {
             <div className="space-y-6">
             <div className="flex flex-col items-center">
             <h2 className="text-4xl font-bold text-black py-4">
-                ABOUT US
+            &gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; ABOUT &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
               </h2>
               <div className="p-4 bg-white shadow-[8px_8px_16px_rgba(0,0,0,0.2)] flex flex-col items-center hover:shadow-inner hover:shadow-gray-400 rounded-lg space-y-4">
                 <h4 className="text-center">WE LOVE TO LEARN, RESEARCH, EXPIREMENT, BUILD, & SOLVE.
@@ -81,7 +81,6 @@ export default function Home() {
                     required
                   />
                   <button
-                    type="submit"
                     className="px-6 py-2 rounded-lg bg-gradient-to-r from-fuchsia-200 to-rose-200 text-gray-600 font-semibold shadow-[2px_2px_4px_#bebebe] hover:shadow-inner hover:bg-none hover:border-2 hover:border-black transition-all duration-300"
                   >
                     Subscribe
@@ -93,8 +92,8 @@ export default function Home() {
               
             </div>
             <div className="flex flex-col items-center">
-            <h1 className='pt-2 text-2xl text-black text-center'> Explore Our Work Through The <br /> <strong> Pandera CLI v1.1 </strong></h1>
-            <h4 className='pb-4 text-l text-black'> Supported Commands: <strong>cd | ls | open</strong> </h4>
+            <h1 className='pt-2 text-2xl text-black text-center'> Explore Our Work Through The <br /> <strong>____Pandera CLI v1.1____</strong></h1>
+            <h4 className='pb-4 text-l text-black'> Supported Commands: <strong>&#91; cd | ls | open &#93;</strong> </h4>
             <Terminal />
             </div>
             
