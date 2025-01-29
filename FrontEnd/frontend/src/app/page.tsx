@@ -64,11 +64,10 @@ export default function Home() {
                 ABOUT US
               </h2>
               <div className="p-4 bg-white shadow-[8px_8px_16px_rgba(0,0,0,0.2)] flex flex-col items-center hover:shadow-inner hover:shadow-gray-400 rounded-lg space-y-4">
-                <h4 className="text-center">We love to look at the world in a different way and ask:
-                  "What does this interpretation tell us?" 
+                <h4 className="text-center">WE LOVE TO LEARN, RESEARCH, EXPIREMENT, BUILD, & SOLVE.
                 </h4>
                 <div className="flex flex-row space-x-4 align-center justify-center">
-                <h2 className="text-center align-center">Sounds like you? <br /> Scan & Join the Panderium</h2>
+                <h2 className="text-center align-center">Sound Like You? <br /> Scan & Join The Panderium</h2>
                 <img src="/qr.gif" className="h-20 w-20"/> 
                 </div>
                 <h4 className="text-center">Subscribe to our free newsletter: <strong>The Street View</strong> to get a summary of our insights + update on anything new we may be working on! 

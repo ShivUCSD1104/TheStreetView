@@ -25,7 +25,7 @@ export default function AnimatedTags({ tags }: AnimatedTagsProps) {
       <motion.div
         className="flex space-x-8 absolute whitespace-nowrap"
         initial={{ x: 0 }}
-        animate={{ x: `-${1 * (tags.length + 1)}%` }}
+        animate={{ x: `-${0.3 * (tags.length + 1)}%` }}
         transition={{ repeat: Infinity, duration: 20, ease: 'linear' }}
         style={{ display: 'flex', width: `${200 * tags.length}%` }}
       >
@@ -34,7 +34,7 @@ export default function AnimatedTags({ tags }: AnimatedTagsProps) {
           return (
             <span
               key={index}
-              className={`${gradientClass} inline-block text-transparent bg-clip-text text-lg px-4 py-1 border-2 border-black rounded-lg shadow-lg shadow-gray-600`}
+              className={`${gradientClass} inline-block text-transparent bg-clip-text text-lg px-4 py-1 border-2 border-black rounded-lg shadow-lg shadow-gray-600 bg-black bg-opacity-100`}
             >
               {tag}
             </span>

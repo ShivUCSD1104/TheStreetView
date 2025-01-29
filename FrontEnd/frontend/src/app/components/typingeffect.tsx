@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 
 const TypingEffect = () => {
-  const text = "(base) ////pandera @UCSD ~ %";
+  const text = "(base) ///pandera @UCSD ~ %";
   const [displayedText, setDisplayedText] = useState('');
   const [index, setIndex] = useState(0);
   const [isImageVisible, setIsImageVisible] = useState(true);
