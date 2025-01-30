@@ -24,7 +24,7 @@ def get_risk_free_rate():
         return 0.04
 
 def get_option_data(ticker_str, contract_type="calls"):
-    """Get filtered option data with robust error handling"""
+    """Get filtered option data matching original logic"""
     try:
         ticker = yf.Ticker(ticker_str)
         expirations = ticker.options[:12]  # Get first 12 expirations
@@ -44,8 +44,8 @@ def get_option_data(ticker_str, contract_type="calls"):
                 expiry_dt = datetime.strptime(expiry, "%Y-%m-%d")
                 T = (expiry_dt - now).total_seconds() / (365*24*3600)
                 
-                # Keep expirations within 3 days to 1 year
-                if T < 3/365 or T > 1:
+                # Match original code's T handling
+                if T <= 0:
                     continue
                 
                 # Retry logic for Yahoo Finance API
@@ -60,17 +60,9 @@ def get_option_data(ticker_str, contract_type="calls"):
                 
                 df = chain.calls if contract_type == "calls" else chain.puts
                 
-                # More lenient filtering
-                df = df[
-                    (df['bid'] > 0) &
-                    (df['ask'] > 0) &
-                    (df['strike'] >= S * 0.3) &  # Wider strike range
-                    (df['strike'] <= S * 3)
-                ]
-                
-                if len(df) > 5:  # Minimum contracts per expiration
-                    valid_data.append((df, T))
-                    logger.info(f"Added {len(df)} {contract_type} for {expiry} (T={T:.2f}y)")
+                # Remove bid/ask filters from new code to match original logic
+                valid_data.append((df, T))
+                logger.info(f"Added {len(df)} {contract_type} for {expiry} (T={T:.2f}y)")
                     
             except Exception as e:
                 logger.warning(f"Skipping {expiry}: {str(e)}")

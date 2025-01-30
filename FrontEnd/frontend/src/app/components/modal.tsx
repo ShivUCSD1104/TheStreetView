@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+
 
 interface Constraint {
   label: string;
@@ -19,9 +21,9 @@ interface ModalProps {
 }
 
 interface ComputedData {
-  grid_mny: number[][]; // 2D array, shape [rows, cols]
-  grid_ttes: number[][]; // same shape
-  grid_ivs: number[][];  // same shape
+  grid_mny: number[][];
+  grid_ttes: number[][];
+  grid_ivs: number[][];
   bounds: {
     x: [number, number];
     y: [number, number];
@@ -32,14 +34,14 @@ interface ComputedData {
 }
 
 export default function Modal({ isOpen, onClose, cardData }: ModalProps) {
-  // Selections for constraints
   const [selections, setSelections] = useState<Record<string, string>>({});
-  // Computed IV data from your backend
   const [computedData, setComputedData] = useState<ComputedData | null>(null);
-
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Initialize constraint selections once
   useEffect(() => {
     const defaults: Record<string, string> = {};
     cardData.constraints.forEach((constraint) => {
@@ -48,118 +50,197 @@ export default function Modal({ isOpen, onClose, cardData }: ModalProps) {
     setSelections(defaults);
   }, [cardData.constraints]);
 
-  /**
-   * Set up 3D scene whenever we have data (computedData) and the modal is open.
-   */
-  useEffect(() => {
-    if (!isOpen || !computedData || !canvasRef.current) return;
+  function viridisColor(t: number): [number, number, number] {
+    const stops = [
+      { t: 0.0, color: [0.267, 0.004, 0.329] },
+      { t: 0.33, color: [0.127, 0.566, 0.55] },
+      { t: 0.66, color: [0.369, 0.788, 0.382] },
+      { t: 1.0, color: [0.993, 0.906, 0.144] },
+    ];
+    
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (t >= stops[i].t && t <= stops[i+1].t) {
+        const span = stops[i+1].t - stops[i].t;
+        const alpha = (t - stops[i].t) / span;
+        const c0 = stops[i].color;
+        const c1 = stops[i+1].color;
+        return [
+          c0[0] + alpha * (c1[0] - c0[0]),
+          c0[1] + alpha * (c1[1] - c0[1]),
+          c0[2] + alpha * (c1[2] - c0[2]),
+        ];
+      }
+    }
+    return stops[stops.length - 1].color as [number, number, number];
+  }
 
-    const canvas = canvasRef.current;
+  const initScene = () => {
+    if (!canvasRef.current) return;
+
+    // Scene setup
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      60,
-      canvas.clientWidth / canvas.clientHeight,
-      0.1,
-      1000
-    );
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    const camera = new THREE.PerspectiveCamera(75, canvasRef.current.clientWidth / canvasRef.current.clientHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ 
+      canvas: canvasRef.current,
+      antialias: true,
+      alpha: true
+    });
 
-    // Extract data
-    const { grid_mny, grid_ttes, grid_ivs, bounds } = computedData;
+    renderer.setSize(canvasRef.current.clientWidth, canvasRef.current.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Match matplotlib's default view: elev=30, azim=120
+    camera.position.set(-5, 7, 7);
+    camera.lookAt(0, 0, 0);
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    dirLight.position.set(30, 50, 40);
+    scene.add(dirLight);
+
+    // Controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 3;
+    controls.maxDistance = 50;
+
+    sceneRef.current = scene;
+    cameraRef.current = camera;
+    rendererRef.current = renderer;
+    controlsRef.current = controls;
+
+    return () => {
+      renderer.dispose();
+      controls.dispose();
+    };
+  };
+
+  const createSurfaceMesh = (data: ComputedData) => {
+    if (!sceneRef.current) return;
+
+    // Clear previous scene elements
+    sceneRef.current.children.forEach(child => {
+      if (child instanceof THREE.Mesh || child instanceof THREE.AxesHelper || child instanceof THREE.Sprite) {
+        sceneRef.current?.remove(child);
+      }
+    });
+
+    const { grid_mny, grid_ttes, grid_ivs, bounds } = data;
     const rows = grid_mny.length;
     const cols = grid_mny[0].length;
 
-    // Ranges for normalization
-    const xRange = bounds.x[1] - bounds.x[0] || 1e-6;
-    const yRange = bounds.y[1] - bounds.y[0] || 1e-6;
-    const zRange = bounds.z[1] - bounds.z[0] || 1e-6;
+    // Normalize ranges for proper scaling
+    const xRange = bounds.x[1] - bounds.x[0];
+    const yRange = bounds.y[1] - bounds.y[0];
+    const zRange = bounds.z[1] - bounds.z[0];
+    const maxRange = Math.max(xRange, yRange, zRange);
+    const scaleFactor = 7 / maxRange; // Adjust this to control overall size
 
-    // Build positions and indices
-    const positions: number[] = [];
-    const indices: number[] = [];
+    // Create geometry with normalized scaling
+    const vertices = new Float32Array(rows * cols * 3);
+    const colors = new Float32Array(rows * cols * 3);
+    const indices = [];
 
-    // Flatten the data
+    let vertexIndex = 0;
     for (let i = 0; i < rows; i++) {
       for (let j = 0; j < cols; j++) {
-        const rawX = grid_mny[i][j];
-        const rawY = grid_ttes[i][j];
-        const rawZ = grid_ivs[i][j];
+        // Normalize coordinates to [0-1] range then scale
+        const x = (grid_mny[i][j] - bounds.x[0]) / xRange * scaleFactor;
+        const y = (grid_ttes[i][j] - bounds.y[0]) / yRange * scaleFactor;
+        const z = (grid_ivs[i][j] - bounds.z[0]) / zRange * scaleFactor;
 
-        // Scale them for a nice scene
-        const x = ((rawX - bounds.x[0]) / xRange) * 50;
-        const y = ((rawY - bounds.y[0]) / yRange) * 50;
-        const z = ((rawZ - bounds.z[0]) / zRange) * 10;
+        vertices[vertexIndex * 3] = x - scaleFactor/2; // Center X
+        vertices[vertexIndex * 3 + 1] = y; // Keep Y at bottom
+        vertices[vertexIndex * 3 + 2] = z;
 
-        positions.push(x, y, z);
+        const t = (grid_ivs[i][j] - bounds.z[0]) / zRange;
+        const [r, g, b] = viridisColor(t);
+        colors[vertexIndex * 3] = r;
+        colors[vertexIndex * 3 + 1] = g;
+        colors[vertexIndex * 3 + 2] = b;
+
+        vertexIndex++;
       }
     }
 
-    // Build indices for two triangles per cell
+    // Generate indices for triangle mesh
     for (let i = 0; i < rows - 1; i++) {
       for (let j = 0; j < cols - 1; j++) {
-        const topLeft = i * cols + j;
-        const bottomLeft = (i + 1) * cols + j;
-        const topRight = i * cols + (j + 1);
-        const bottomRight = (i + 1) * cols + (j + 1);
+        const a = i * cols + j;
+        const b = i * cols + j + 1;
+        const c = (i + 1) * cols + j + 1;
+        const d = (i + 1) * cols + j;
 
-        // First triangle
-        indices.push(topLeft, bottomLeft, bottomRight);
-        // Second triangle
-        indices.push(topLeft, bottomRight, topRight);
+        indices.push(a, b, d);
+        indices.push(b, c, d);
       }
     }
 
-    // Build geometry
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(positions, 3)
-    );
-    geometry.setIndex(new THREE.Uint32BufferAttribute(indices, 1));
+    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
-    // Material
     const material = new THREE.MeshPhongMaterial({
-      color: 0x2194ce,
-      wireframe: false,
+      vertexColors: true,
+      shininess: 50,
       side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.85
     });
 
-    // Mesh
-    const surface = new THREE.Mesh(geometry, material);
-    scene.add(surface);
+    const surfaceMesh = new THREE.Mesh(geometry, material);
+    sceneRef.current.add(surfaceMesh);
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(0, 50, 50);
-    scene.add(dirLight);
+    // Add scaled axes
+    const axesHelper = new THREE.AxesHelper(scaleFactor * 1.2);
+    sceneRef.current.add(axesHelper);
 
-    // Camera positioning
-    camera.position.set(25, 25, 50);
-    camera.lookAt(new THREE.Vector3(25, 25, 0));
+    // Axis labels with proper scaling
+    const createLabel = (text: string, position: THREE.Vector3) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = '#000000';
+      ctx.font = '18px Arial';
+      ctx.fillText(text, 10, 30);
 
-    // Animate
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+      const sprite = new THREE.Sprite(spriteMaterial);
+      sprite.scale.set(0.5, 0.25, 1);
+      sprite.position.copy(position);
+      sceneRef.current?.add(sprite);
+    };
+
+    createLabel('Moneyness', new THREE.Vector3(scaleFactor/2, -0.1, 0));
+    createLabel('Time to Expiry', new THREE.Vector3(-0.1, scaleFactor * 1.1, 0));
+    createLabel('Implied Vol', new THREE.Vector3(-0.1, 0, scaleFactor * 1.1));
+
+  };
+
+  useEffect(() => {
+    if (!isOpen || !computedData) return;
+
+    const cleanup = initScene();
+    createSurfaceMesh(computedData);
+
     const animate = () => {
+      if (!rendererRef.current || !cameraRef.current || !sceneRef.current) return;
+      controlsRef.current?.update();
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
       requestAnimationFrame(animate);
-      surface.rotation.y += 0.002;
-      renderer.render(scene, camera);
     };
     animate();
 
-    // Cleanup on unmount or re-render
-    return () => {
-      geometry.dispose();
-      material.dispose();
-      renderer.dispose();
-    };
+    return cleanup;
   }, [computedData, isOpen]);
 
-  /**
-   * Fetch data from your API
-   */
   const handleSubmit = async () => {
     try {
       const res = await fetch("/api/compute", {
@@ -171,93 +252,61 @@ export default function Modal({ isOpen, onClose, cardData }: ModalProps) {
         }),
       });
       const data: ComputedData = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to compute");
-      }
+      if (!res.ok) throw new Error(data.error || "Failed to compute");
       setComputedData(data);
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : err}`);
     }
   };
 
-  // Don’t render anything if closed
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-50"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-lg shadow-[8px_-8px_16px_rgba(255,255,255,0.7)] max-w-6xl w-full p-6 h-3/4"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-[8px_-8px_16px_rgba(255,255,255,0.7)] max-w-6xl w-full p-6 h-3/4" 
+           onClick={(e) => e.stopPropagation()}>
         <div className="flex h-full items-center">
-          {/* LEFT SIDEBAR: Title, constraints, error, buttons */}
           <div className="flex flex-col items-center w-1/3 h-full">
-            {/* Title */}
             <h2 className="text-xl bg-gradient-to-r from-yellow-100 from-10% via-emerald-100 to-blue-100 to-90% text-black mb-4 text-center p-2 border border-black rounded-lg shadow-lg">
               {cardData.title}
             </h2>
 
-            {/* Error display (if any) */}
             {computedData?.error && (
               <div className="text-red-500 bg-red-50 border border-red-300 p-2 rounded mb-4">
                 Error: {computedData.error}
               </div>
             )}
 
-            {/* Constraints */}
             <div className="w-full p-4 rounded-lg shadow-lg hover:shadow-inner hover:shadow-gray-300 flex-1 overflow-y-auto">
               {cardData.constraints.map((constraint, index) => (
                 <div key={index} className="mb-4 w-full text-center">
-                  <label className="block text-gray-600 mb-1">
-                    {constraint.label}
-                  </label>
+                  <label className="block text-gray-600 mb-1">{constraint.label}</label>
                   <select
                     className="w-full bg-white text-gray-600 p-2 rounded shadow-md hover:shadow-inner hover:shadow-gray-200"
                     value={selections[constraint.label]}
-                    onChange={(e) =>
-                      setSelections((prev) => ({
-                        ...prev,
-                        [constraint.label]: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setSelections(prev => ({ ...prev, [constraint.label]: e.target.value }))}
                   >
                     {constraint.options.map((option, idx) => (
-                      <option key={idx} value={option}>
-                        {option}
-                      </option>
+                      <option key={idx} value={option}>{option}</option>
                     ))}
                   </select>
                 </div>
               ))}
             </div>
 
-            {/* Buttons */}
             <div className="mt-4 space-x-2">
-              <button
-                onClick={handleSubmit}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-              >
+              <button onClick={handleSubmit} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
                 Generate Visualization
               </button>
-              <button
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-              >
+              <button onClick={onClose} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
                 Close
               </button>
             </div>
           </div>
 
-          {/* RIGHT PANEL: 3D Canvas */}
           <div className="w-2/3 p-4 h-full">
             <div className="bg-fuchsia-100 rounded-lg h-full flex justify-center items-center">
-              <canvas
-                ref={canvasRef}
-                className="w-full h-full bg-gray-100 rounded-lg"
-              />
+              <canvas ref={canvasRef} className="w-full h-full bg-gray-100 rounded-lg" />
             </div>
           </div>
         </div>
