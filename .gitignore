@@ -1,0 +1,8 @@
+node_modules
+node_modules/*
+flask-compute/__pycache__/app.cpython-310.pyc
+Frontend/frontend/node_modules
+Frontend/node_modules/*
+Frontend/node-server/node_modules
+Frontend/node-server/node_modules/*
+IVSurface/__pycache__

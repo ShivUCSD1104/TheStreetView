@@ -1,73 +1,86 @@
 import yfinance as yf
 from datetime import datetime
+import numpy as np
+import logging
+from time import sleep
 
-#Get the risk-free rate using the 3-month T-bill
+logger = logging.getLogger(__name__)
+
 def get_risk_free_rate():
-    """
-    Fetches the 3-month T-bill (annualized) yield from yfinance
-    using the '^IRX' ticker. You can switch to a different T-Bill
-    if you prefer e.g. '^IRX' -> 3-month, '^FVX' -> 5-year, etc.
+    """Get 3-month T-bill rate with fallback and validation"""
+    try:
+        tbill = yf.Ticker("^IRX")
+        hist = tbill.history(period="1d")
+        
+        if hist.empty:
+            logger.warning("No T-bill data, using fallback rate")
+            return 0.04  # Fallback rate
+        
+        rate = hist["Close"].iloc[-1] / 100
+        return max(min(rate, 0.15), 0.001)  # Cap between 0.1%-15%
     
-    Returns the yield in decimal form (e.g. 0.045 => 4.5%).
-    """
-    tbill = yf.Ticker("^IRX")  # 13-week T-bill index on Yahoo
-    hist = tbill.history(period="1d")
-    if hist.empty:
-        # Fallback if no data
-        return 0.042
-    
-    # ^IRX is often quoted in basis points or %; typically it's in hundredths
-    last_close = hist["Close"].iloc[-1]
-    # Convert to decimal form (e.g. 4.5 => 0.045)
-    r_decimal = last_close / 100.0
-    return r_decimal
-
+    except Exception as e:
+        logger.error(f"Error fetching risk-free rate: {str(e)}")
+        return 0.04
 
 def get_option_data(ticker_str, contract_type="calls"):
-    """
-    Retrieves up to 3 option chain DataFrames (calls or puts) for a given ticker's earliest expirations.
-    
-    contract_type: 'calls' or 'puts'
-    Returns:
-      - A list of tuples: [(options_df, T), (options_df, T), (options_df, T)] for up to 3 expirations
-      - Underlying spot price S
-    """
-    ticker = yf.Ticker(ticker_str)
-    
-    # Get all available expiration dates
-    expirations = ticker.options
-    if not expirations:
-        raise ValueError(f"No option data available for ticker {ticker_str}.")
-    
-    # Select up to the first 36 expiration dates
-    selected_expirations = expirations[:12]
-    
-    # Get current underlying price
-    stock_data = ticker.history(period="1d")
-    if stock_data.empty:
-        raise ValueError("Could not retrieve stock price history.")
-    S = stock_data["Close"].iloc[-1]
-    
-    # Build a list of (DataFrame, T) for each of the selected expirations
-    data_list = []
-    now = datetime.now()
-    
-    for expiry_date in selected_expirations:
-        chain = ticker.option_chain(expiry_date)
-        if contract_type == "calls":
-            options_df = chain.calls
-        elif contract_type == "puts":
-            options_df = chain.puts
-        else:
-            raise ValueError("contract_type must be either 'calls' or 'puts'.")
+    """Get filtered option data with robust error handling"""
+    try:
+        ticker = yf.Ticker(ticker_str)
+        expirations = ticker.options[:12]  # Get first 12 expirations
+        stock_data = ticker.history(period="1d")
         
-        expiry_dt = datetime.strptime(expiry_date, "%Y-%m-%d")
-        T = (expiry_dt - now).days / 365.0
+        if not expirations or stock_data.empty:
+            raise ValueError("Missing option/stock data")
+            
+        S = stock_data["Close"].iloc[-1]
+        valid_data = []
+        now = datetime.now()
         
-        # Skip if T <= 0
-        if T > 0:
-            data_list.append((options_df, T))
+        logger.info(f"Processing {len(expirations)} expirations for {ticker_str}")
+        
+        for expiry in expirations:
+            try:
+                expiry_dt = datetime.strptime(expiry, "%Y-%m-%d")
+                T = (expiry_dt - now).total_seconds() / (365*24*3600)
+                
+                # Keep expirations within 3 days to 1 year
+                if T < 3/365 or T > 1:
+                    continue
+                
+                # Retry logic for Yahoo Finance API
+                for attempt in range(3):
+                    try:
+                        chain = ticker.option_chain(expiry)
+                        break
+                    except Exception as e:
+                        if attempt == 2:
+                            raise
+                        sleep(1)
+                
+                df = chain.calls if contract_type == "calls" else chain.puts
+                
+                # More lenient filtering
+                df = df[
+                    (df['bid'] > 0) &
+                    (df['ask'] > 0) &
+                    (df['strike'] >= S * 0.3) &  # Wider strike range
+                    (df['strike'] <= S * 3)
+                ]
+                
+                if len(df) > 5:  # Minimum contracts per expiration
+                    valid_data.append((df, T))
+                    logger.info(f"Added {len(df)} {contract_type} for {expiry} (T={T:.2f}y)")
+                    
+            except Exception as e:
+                logger.warning(f"Skipping {expiry}: {str(e)}")
+                continue
+        
+        if not valid_data:
+            raise ValueError(f"No valid {contract_type} data found for {ticker_str}")
+        
+        return valid_data, S
     
-    return data_list, S
-
-
+    except Exception as e:
+        logger.error(f"Data sourcing failed: {str(e)}")
+        raise ValueError(f"Could not retrieve data for {ticker_str}")
