@@ -26,9 +26,9 @@ def perform_computation(parameters):
     This function receives the JSON parameters from the Node server,
     calls our IVMap function, and returns the MPLD3 HTML.
     """
-    ticker = parameters.get('ticker', 'AAPL')
-    start_date = parameters.get('startDate', '1M')
-    end_date = parameters.get('endDate', '3M')
+    ticker = parameters.get('Ticker', 'AAPL')
+    start_date = parameters.get('Start Date', '1M')
+    end_date = parameters.get('End Date', '3M')
 
     # Actually compute the IV surface & get HTML
     # html_str = generate_iv_surface_html(ticker, start_date, end_date)

@@ -43,22 +43,6 @@ const Modal = ({ isOpen, onClose, cardData }: ModalProps) => {
         parameters[labelKey] = selections[labelKey] || constraint.options[0];
       });
 
-      // Call our Node endpoint which proxies to Flask
-  //     const res = await axios.post('http://localhost:5000/api/compute', {
-  //       parameters,
-  //     });
-
-  //     // The server returns JSON like: { mpld3_html: "<div> ... <script> ...</script></div>" }
-  //     if (res.data.mpld3_html) {
-  //       setMpld3Html(res.data.mpld3_html);
-  //     } else {
-  //       setMpld3Html("<p>No data returned.</p>");
-  //     }
-  //   } catch (err) {
-  //     console.error(err);
-  //     setMpld3Html("<p>Error generating graph.</p>");
-  //   }
-  // };
       const res = await axios.post('http://localhost:5000/api/compute', {
           parameters,
         });
