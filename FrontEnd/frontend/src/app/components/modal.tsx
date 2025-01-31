@@ -1,5 +1,10 @@
 'use client';
 
+import React, { useState } from 'react';
+import axios from 'axios';
+import Plot from 'react-plotly.js';
+
+
 interface Constraint {
   label: string;
   options: string[];
@@ -17,7 +22,55 @@ interface ModalProps {
 }
 
 const Modal = ({ isOpen, onClose, cardData }: ModalProps) => {
+  const [selections, setSelections] = useState<{ [key: string]: string }>({});
+  const [mpld3Html, setMpld3Html] = useState<string>(""); // to store the HTML from the server
+  const [plotData, setPlotData] = useState<any>(null);
+
   if (!isOpen) return null;
+
+  const handleSelectionChange = (label: string, value: string) => {
+    setSelections((prev) => ({
+      ...prev,
+      [label]: value,
+    }));
+  };
+
+  const computeGraph = async () => {
+    try {
+      const parameters: any = {};
+      cardData.constraints.forEach((constraint) => {
+        const labelKey = constraint.label;
+        parameters[labelKey] = selections[labelKey] || constraint.options[0];
+      });
+
+      // Call our Node endpoint which proxies to Flask
+  //     const res = await axios.post('http://localhost:5000/api/compute', {
+  //       parameters,
+  //     });
+
+  //     // The server returns JSON like: { mpld3_html: "<div> ... <script> ...</script></div>" }
+  //     if (res.data.mpld3_html) {
+  //       setMpld3Html(res.data.mpld3_html);
+  //     } else {
+  //       setMpld3Html("<p>No data returned.</p>");
+  //     }
+  //   } catch (err) {
+  //     console.error(err);
+  //     setMpld3Html("<p>Error generating graph.</p>");
+  //   }
+  // };
+      const res = await axios.post('http://localhost:5000/api/compute', {
+          parameters,
+        });
+
+        if (res.data.plotly_json) {
+          setPlotData(JSON.parse(res.data.plotly_json));
+        }
+      } catch (err) {
+        console.error(err);
+        setPlotData(null);
+      }
+    };
 
   return (
     <div
@@ -30,28 +83,50 @@ const Modal = ({ isOpen, onClose, cardData }: ModalProps) => {
       >
         <div className="flex h-full items-center">
           {/* Sidebar for constraints */}
-          <div className="flex flex-col items-center w-1/3"> 
-          <h2 className="text-xl bg-gradient-to-r from-yellow-100 from-10% via-emerald-100 to-blue-100 to-90% text-black mb-4 text-center p-2 border border-black rounded-lg shadow-lg">{cardData.title}</h2>
-          <div className="w-full p-4 rounded-lg shadow-lg hover:shadow-inner hover:shadow-gray-300">
-            {cardData.constraints.map((constraint: Constraint, index: number) => (
-              <div key={index} className="mb-4 w-full text-center">
-                <label className="block text-gray-600 mb-1">{constraint.label}</label>
-                <select className="w-full bg-white text-gray-600 p-2 rounded shadow-md hover:shadow-inner hover:shadow-gray-200">
-                  {constraint.options.map((option: string, idx: number) => (
-                    <option key={idx} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+          <div className="flex flex-col items-center w-1/3">
+            <h2 className="text-xl bg-gradient-to-r from-yellow-100 from-10% via-emerald-100 to-blue-100 to-90% text-black mb-4 text-center p-2 border border-black rounded-lg shadow-lg">
+              {cardData.title}
+            </h2>
+            <div className="w-full p-4 rounded-lg shadow-lg hover:shadow-inner hover:shadow-gray-300">
+              {cardData.constraints.map((constraint: Constraint, index: number) => (
+                <div key={index} className="mb-4 w-full text-center">
+                  <label className="block text-gray-600 mb-1">{constraint.label}</label>
+                  <select
+                    className="w-full bg-white text-gray-600 p-2 rounded shadow-md hover:shadow-inner hover:shadow-gray-200"
+                    onChange={(e) => handleSelectionChange(constraint.label, e.target.value)}
+                  >
+                    {constraint.options.map((option: string, idx: number) => (
+                      <option key={idx} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            {/* Compute button */}
+            <button
+              onClick={computeGraph}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600"
+            >
+              Compute
+            </button>
           </div>
-          </div>
+
           {/* Graphing area */}
           <div className="w-2/3 p-4 h-full">
-            <div className="bg-fuchsia-100 rounded-lg h-full flex justify-center items-center">
-              {/* Placeholder for graph */}
-              <span className="text-emerald-500">Graph Visualization Here</span>
+            <div className="bg-fuchsia-100 rounded-lg h-full flex justify-center items-center overflow-auto">
+              {plotData ? (
+                <Plot
+                  data={plotData.data}
+                  layout={plotData.layout}
+                  config={{ responsive: true }}
+                  style={{ width: '100%', height: '100%' }}
+                />
+              ) : (
+                <span className="text-emerald-500">Graph Visualization Here</span>
+              )}
             </div>
           </div>
         </div>
