@@ -27,8 +27,8 @@ def perform_computation(parameters):
     calls our IVMap function, and returns the MPLD3 HTML.
     """
     ticker = parameters.get('Ticker', 'AAPL')
-    start_date = parameters.get('Start Date', '1M')
-    end_date = parameters.get('End Date', '3M')
+    start_date = parameters.get('Start Date')
+    end_date = parameters.get('End Date')
 
     # Actually compute the IV surface & get HTML
     # html_str = generate_iv_surface_html(ticker, start_date, end_date)

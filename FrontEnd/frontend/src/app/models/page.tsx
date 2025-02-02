@@ -22,24 +22,30 @@ export default function Models() {
       title: 'Implied Volatility Surface',
       constraints: [
         { label: 'Ticker', options: ['AAPL', 'GOOGL', 'MSFT'] },
-        { label: 'Start Date', options: ['1M', '3M', '6M'] },
-        { label: 'End Date', options: ['1M', '3M', '6M'] },
+        { 
+          label: 'Time Period', 
+          options: ['1 month', '3 months', '6 months', '1 year', 'custom'] 
+        },
       ],
     },
     {
       title: 'Order Book Ravine',
       constraints: [
-        { label: 'Ticker', options: ['AAPL', 'GOOGL', 'MSFT']  },
-        { label: 'Start Date', options: ['1M', '3M', '6M'] },
-        { label: 'End Date', options: ['1M', '3M', '6M'] },
+        { label: 'Ticker', options: ['AAPL', 'GOOGL', 'MSFT'] },
+        { 
+          label: 'Time Period', 
+          options: ['1 month', '3 months', '6 months', '1 year', 'custom'] 
+        },
       ],
     },
     {
       title: 'US Fix Income Yield Plot',
       constraints: [
         { label: 'Issuer', options: ['US Treasury'] },
-        { label: 'Start Date', options: ['1M', '3M', '6M'] },
-        { label: 'End Date', options: ['1M', '3M', '6M'] },
+        { 
+          label: 'Time Period', 
+          options: ['1 month', '3 months', '6 months', '1 year', 'custom'] 
+        },
       ],
     },
   ];

@@ -11,8 +11,8 @@ def generate_iv_surface_html(ticker_symbol, start_date, end_date):
     """
 
     # --- 1) Compute your data for calls & puts ---
-    ivs_calls, mny_calls, ttes_calls = compute_implied_vols(ticker_symbol, "calls")
-    ivs_puts, mny_puts, ttes_puts   = compute_implied_vols(ticker_symbol, "puts")
+    ivs_calls, mny_calls, ttes_calls = compute_implied_vols(ticker_symbol, "calls", start_date, end_date)
+    ivs_puts, mny_puts, ttes_puts   = compute_implied_vols(ticker_symbol, "puts", start_date, end_date)
     # Combine calls + puts
     ivs  = np.array(ivs_calls + ivs_puts)
     mny  = np.array(mny_calls + mny_puts)
@@ -58,12 +58,6 @@ def generate_iv_surface_html(ticker_symbol, start_date, end_date):
     )
     fig = go.Figure(data=[surface], layout=layout)
 
-    # --- 5) Convert to HTML snippet ---
-    #  - include_plotlyjs='cdn' loads Plotly JS from a CDN
-    #  - output_type='div' returns a <div> ... </div> string
-    # html_str = pyo.plot(fig, include_plotlyjs=False, output_type='div')
-
-    # return html_str
     fig_json = fig.to_json()
     
     return fig_json

@@ -112,7 +112,7 @@ def implied_vol_put(market_price, S, K, T, r=0.0, tol=0.01, max_iter=100):
     
     return sigma
 
-def compute_implied_vols(ticker_str, contract_type="calls"):
+def compute_implied_vols(ticker_str, contract_type="calls", start_date=None, end_date=None):
     """
     Main function to:
       1. Get the risk-free rate from T-Bill yield.
@@ -128,8 +128,8 @@ def compute_implied_vols(ticker_str, contract_type="calls"):
     r = get_risk_free_rate()
     
     # Step 2: Get up to 3 option data sets
-    data_list, S = get_option_data(ticker_str, contract_type=contract_type)
-    
+    data_list, S = get_option_data(ticker_str, contract_type=contract_type, start_date=start_date, end_date=end_date)
+    print(data_list, 'haha')
     ivs = []
     mny = []
     ttes = []
