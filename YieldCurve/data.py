@@ -10,33 +10,49 @@ def get_yield_data(start_date, end_date):
         "^TYX": "30-Year",
     }
 
-    # Original working data retrieval logic
     data = {}
     for ticker, label in tickers.items():
         try:
-            # Keep original date range that worked locally
-            df = yf.download(ticker, start="2024-07-01", end="2025-01-01")
+            df = yf.download(ticker, start=start_date, end=end_date)
             if not df.empty:
-                data[label] = df["Close"]
+                # Ensure we get a Series (1D) even if yfinance returns DataFrame
+                close_data = df["Close"].squeeze()  # Fix here
+                if isinstance(close_data, pd.Series):
+                    data[label] = close_data
+                else:
+                    print(f"Unexpected data format for {label} ({ticker})")
+            else:
+                print(f"No data for {label} ({ticker})")
         except Exception as e:
-            print(f"Error fetching {label} data: {str(e)}")
-            continue
+            print(f"Error fetching {label}: {e}")
 
-    # Original data processing logic
-    yield_data = pd.DataFrame(columns=['Date','Maturity','Yield'])
-    for k,v in data.items():
-        mat = 3 if k == "3-Month" else 60 if k == "5-Year" else 120 if k == "10-Year" else 360
-        for date, price in v.items():
-            df2 = pd.DataFrame([[date, mat, price]], columns=['Date','Maturity','Yield'])
-            yield_data = pd.concat([yield_data, df2])
+    yield_data = pd.DataFrame(columns=['Date', 'Maturity', 'Yield'])
+    for label, series in data.items():
+        maturity = {
+            "3-Month": 3,
+            "5-Year": 60,
+            "10-Year": 120,
+            "30-Year": 360
+        }[label]
+        
+        # Ensure all columns are 1D arrays
+        temp_df = pd.DataFrame({
+            'Date': series.index,         # 1D DatetimeIndex
+            'Maturity': [maturity] * len(series),  # Explicit 1D list
+            'Yield': series.values        # 1D array
+        })
+        yield_data = pd.concat([yield_data, temp_df])
 
-    # Keep original pivoting logic
-    yield_data.set_index('Date', inplace=True)
-    pivot_yield_data = yield_data.reset_index().pivot(index='Date', columns='Maturity', values='Yield')
-    pivot_yield_data = pivot_yield_data[[3, 60, 120, 360]]  # Maintain original order
-    
-    z = pivot_yield_data.to_numpy()
-    x = np.array([3, 60, 120, 360])
-    y = pivot_yield_data.index
+    # Handle empty data edge case
+    if yield_data.empty:
+        return np.array([]), np.array([]), np.array([])  # Return empty arrays
 
-    return x, y, z
+    # Pivot and clean
+    pivot_yield = yield_data.pivot(index='Date', columns='Maturity', values='Yield')
+    pivot_yield = pivot_yield[[3, 60, 120, 360]]  # Ensure column order
+
+    return (
+        pivot_yield.columns.to_numpy(),  # Maturities (x)
+        pivot_yield.index.to_numpy(),    # Dates (y)
+        pivot_yield.to_numpy()           # Yields (z)
+    )
