@@ -5,7 +5,7 @@ import pandas as pd
 from utils import create_orderbook
 
 def get_data(ticker='TSLA', days=7):
-  client = db.Historical("db-HSVn4NBRBrgrFASf5WCUiKGkMywks")
+  client = db.Historical("db-hhdPdydXsya9RV9qPt8h4t4rhjNF3")
 
   #start_date a week from today
   start_date = datetime.now() - timedelta(days=days)

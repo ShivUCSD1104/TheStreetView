@@ -11,9 +11,9 @@ app.use(bodyParser.json());
 
 app.post('/api/compute', async (req, res) => {
   try {
-    const { parameters } = req.body;
+    const { parameters, graphType } = req.body;
 
-    const response = await axios.post('http://127.0.0.1:5001/compute', { parameters });
+    const response = await axios.post('http://127.0.0.1:5001/compute', { parameters, graphType });
     
     res.json(response.data);
   } catch (error) {

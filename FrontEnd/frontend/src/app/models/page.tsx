@@ -10,6 +10,7 @@ interface Constraint {
 
 interface CardData {
   title: string;
+  type: string; 
   constraints: Constraint[];
 }
 
@@ -20,6 +21,7 @@ export default function Models() {
   const cards: CardData[] = [
     {
       title: 'Implied Volatility Surface',
+      type: 'IVMap',
       constraints: [
         { label: 'Ticker', options: ['AAPL', 'GOOGL', 'MSFT'] },
         { 
@@ -30,6 +32,7 @@ export default function Models() {
     },
     {
       title: 'Order Book Ravine',
+      type: 'OrderFlowCanyon',
       constraints: [
         { label: 'Ticker', options: ['AAPL', 'GOOGL', 'MSFT'] },
         { 
@@ -40,6 +43,7 @@ export default function Models() {
     },
     {
       title: 'US Fix Income Yield Plot',
+      type: 'USFixedIncomeYield',
       constraints: [
         { label: 'Issuer', options: ['US Treasury'] },
         { 

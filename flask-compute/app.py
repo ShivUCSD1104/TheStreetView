@@ -15,34 +15,33 @@ CORS(app)
 def compute():
     data = request.json
     parameters = data.get('parameters', {})
+    graph_type = data.get('graphType')
 
-    # Perform your computation here
-    computed_data = perform_computation(parameters)
-
-    return jsonify(computed_data)
-
-def perform_computation(parameters):
-    """
-    This function receives the JSON parameters from the Node server,
-    calls our IVMap function, and returns the MPLD3 HTML.
-    """
-    ticker = parameters.get('Ticker', 'AAPL')
-    start_date = parameters.get('Start Date')
-    end_date = parameters.get('End Date')
-
-    # Actually compute the IV surface & get HTML
-    # html_str = generate_iv_surface_html(ticker, start_date, end_date)
-
-    # # Return in JSON form
-    # return {
-    #     "mpld3_html": html_str
-    # }
-    fig_json = generate_iv_surface_html(ticker, start_date, end_date)
+    if graph_type == 'IVMap':
+        from IVSurface.IVmap import generate_iv_surface_html
+        fig_json = generate_iv_surface_html(
+            parameters.get('Ticker', 'AAPL'),
+            parameters.get('Start Date'),
+            parameters.get('End Date')
+        )
+    elif graph_type == 'OrderFlowCanyon':
+        from OrderFlowCanyon.main import generate_order_flow_html
+        fig_json = generate_order_flow_html(
+            parameters.get('Ticker', 'AAPL'),
+            parameters.get('Start Date'),
+            parameters.get('End Date')
+        )
+    elif graph_type == 'USFixedIncomeYield':
+        from YieldCurve.main import generate_yield_curve_html
+        fig_json = generate_yield_curve_html(
+            parameters.get('Issuer', 'US Treasury'),
+            parameters.get('Start Date'),
+            parameters.get('End Date')
+        )
+    else:
+        return jsonify({"error": "Invalid graph type"}), 400
     
-    return {
-        "plotly_json": fig_json
-    }
-
+    return jsonify({"plotly_json": fig_json})
 
 if __name__ == '__main__':
     app.run(port=5001)

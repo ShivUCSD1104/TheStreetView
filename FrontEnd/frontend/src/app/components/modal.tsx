@@ -13,6 +13,7 @@ interface Constraint {
 
 interface CardData {
   title: string;
+  type: string;
   constraints: Constraint[];
 }
 
@@ -36,21 +37,45 @@ const CustomSlider = styled(Slider)({
   },
 });
 
+const getDateRange = (graphType: string) => {
+  const currentDate = new Date();
+  const startDate = new Date(currentDate);
+  const endDate = new Date(currentDate);
+
+  switch(graphType) {
+    case 'OrderFlowCanyon':
+      startDate.setFullYear(currentDate.getFullYear() - 3);
+      endDate.setDate(currentDate.getDate() - 1);
+      break;
+    case 'IVMap':
+      startDate.setDate(currentDate.getDate() + 1);
+      endDate.setFullYear(currentDate.getFullYear() + 2);
+      break;
+    case 'USFixedIncomeYield':
+      startDate.setFullYear(currentDate.getFullYear() - 5);
+      endDate.setDate(currentDate.getDate() - 1);
+      break;
+    default:
+      startDate.setDate(currentDate.getDate() + 1);
+      endDate.setFullYear(currentDate.getFullYear() + 2);
+      break;
+  }
+
+  return { startDate, endDate };
+};
+
 const Modal = ({ isOpen, onClose, cardData }: ModalProps) => {
   const [selections, setSelections] = useState<{ [key: string]: string }>({});
   const [plotData, setPlotData] = useState<any>(null);
 
   useEffect(() => {
-    const oneDayFuture = new Date();
-    oneDayFuture.setDate(oneDayFuture.getDate() + 1);
-    const twoYearsFuture = new Date();
-    twoYearsFuture.setFullYear(twoYearsFuture.getFullYear() + 2);
+    const { startDate, endDate } = getDateRange(cardData.type);
     setSelections(prev => ({
       ...prev,
-      'Start Date': prev['Start Date'] || oneDayFuture.toISOString().split('T')[0],
-      'End Date': prev['End Date'] || twoYearsFuture.toISOString().split('T')[0],
+      'Start Date': prev['Start Date'] || startDate.toISOString().split('T')[0],
+      'End Date': prev['End Date'] || endDate.toISOString().split('T')[0],
     }));
-  }, []);
+  }, [cardData.type]);
 
   const handleSelectionChange = (label: string, value: string) => {
     setSelections((prev) => ({ ...prev, [label]: value }));
@@ -58,22 +83,32 @@ const Modal = ({ isOpen, onClose, cardData }: ModalProps) => {
 
   const computeGraph = async () => {
     try {
-      const parameters: any = {};
+      const parameters: Record<string, string> = {};
       cardData.constraints.forEach((constraint) => {
         if (constraint.label === 'Time Period') {
-          const oneDayFuture = new Date();
-          oneDayFuture.setDate(oneDayFuture.getDate() + 1);
-          const twoYearsFuture = new Date();
-          twoYearsFuture.setFullYear(twoYearsFuture.getFullYear() + 2);
-          parameters['Start Date'] = selections['Start Date'] || oneDayFuture.toISOString().split('T')[0];
-          parameters['End Date'] = selections['End Date'] || twoYearsFuture.toISOString().split('T')[0];
+          const { startDate, endDate } = getDateRange(cardData.type);
+          parameters['Start Date'] = selections['Start Date'] || startDate.toISOString().split('T')[0];
+          parameters['End Date'] = selections['End Date'] || endDate.toISOString().split('T')[0];
         } else {
           parameters[constraint.label] = selections[constraint.label] || constraint.options[0];
         }
       });
-      const res = await axios.post('http://localhost:5000/api/compute', { parameters });
+
+      const res = await axios.post('http://localhost:5000/api/compute', { 
+        parameters,
+        graphType: cardData.type
+      });
+
       if (res.data.plotly_json) {
-        setPlotData(JSON.parse(res.data.plotly_json));
+        console.log('Received Plotly JSON:', res.data.plotly_json);
+        try {
+          const parsed = JSON.parse(res.data.plotly_json);
+          console.log('Parsed data:', parsed.data);
+          console.log('Parsed layout:', parsed.layout);
+          setPlotData(parsed);
+        } catch (e) {
+          console.error('JSON parse error:', e);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -83,27 +118,22 @@ const Modal = ({ isOpen, onClose, cardData }: ModalProps) => {
 
   if (!isOpen) return null;
 
-  const oneDayFuture = new Date();
-  oneDayFuture.setDate(oneDayFuture.getDate() + 1);
-  const twoYearsFuture = new Date();
-  twoYearsFuture.setFullYear(twoYearsFuture.getFullYear() + 2);
+  const { startDate: defaultStart, endDate: defaultEnd } = getDateRange(cardData.type);
+  const startDateStr = selections['Start Date'] || defaultStart.toISOString().split('T')[0];
+  const endDateStr = selections['End Date'] || defaultEnd.toISOString().split('T')[0];
 
-  const startDateStr = selections['Start Date'] || oneDayFuture.toISOString().split('T')[0];
-  const endDateStr = selections['End Date'] || twoYearsFuture.toISOString().split('T')[0];
-
-  const minTimestamp = oneDayFuture.getTime();
-  const maxTimestamp = twoYearsFuture.getTime();
+  const minTimestamp = defaultStart.getTime();
+  const maxTimestamp = defaultEnd.getTime();
   const startDay = Math.floor((new Date(startDateStr).getTime() - minTimestamp) / 86400000);
   const endDay = Math.floor((new Date(endDateStr).getTime() - minTimestamp) / 86400000);
   const totalDays = Math.floor((maxTimestamp - minTimestamp) / 86400000);
-
 
   return (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-50" onClick={onClose}>
       <div className="bg-white rounded-lg shadow-8px_-8px_16px_rgba(255,255,255,0.7)] max-w-6xl w-full p-6 h-3/4" onClick={(e) => e.stopPropagation()}>
         <div className="flex h-full items-center">
           <div className="flex flex-col items-center w-1/3">
-            {/* ... (existing title and UI elements remain unchanged) */}
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">{cardData.title}</h2>
             <div className="w-full p-4 rounded-lg shadow-lg hover:shadow-inner hover:shadow-gray-300">
               {cardData.constraints.map((constraint: Constraint, index: number) => (
                 <div key={index} className="mb-4 w-full text-center">
@@ -113,9 +143,7 @@ const Modal = ({ isOpen, onClose, cardData }: ModalProps) => {
                       <CustomSlider
                         value={[startDay, endDay]}
                         onChange={(_, values, activeThumb) => {
-                          // Ensure values is an array
                           const newValues = values as number[];
-                          // Only update the value for the thumb being dragged.
                           if (activeThumb === 0) {
                             const newStartDate = new Date(minTimestamp + newValues[0] * 86400000);
                             setSelections((prev) => ({
