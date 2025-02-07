@@ -2,15 +2,15 @@ import databento as db
 from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
-from utils import create_orderbook
+from .utils import create_orderbook
 
-def get_data(ticker='TSLA', days=7):
-  client = db.Historical("db-hhdPdydXsya9RV9qPt8h4t4rhjNF3")
+def get_data(ticker='TSLA', start_date=None, end_date=None):
+  client = db.Historical("db-bqHaU58pn5EXXgLPYAHydm9EM7PHy")
 
-  #start_date a week from today
-  start_date = datetime.now() - timedelta(days=days)
-  #end date yesterday
-  end_date = datetime.now() - timedelta(days=1)
+  if start_date is None:
+    start_date = datetime.now() - timedelta(days=3)
+  if end_date is None:
+    end_date = datetime.now() - timedelta(days=1)
   symbols = [ticker]
 
   df = client.timeseries.get_range(

@@ -26,6 +26,7 @@ def compute():
         )
     elif graph_type == 'OrderFlowCanyon':
         from OrderFlowCanyon.main import generate_order_flow_html
+        print('here')
         fig_json = generate_order_flow_html(
             parameters.get('Ticker', 'AAPL'),
             parameters.get('Start Date'),
